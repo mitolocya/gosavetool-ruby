@@ -1,0 +1,117 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# gosavetool: subtitle and text tools on the command line. https://www.gosavetool.com/
+require "gosavetool"
+
+HELP = <<~TEXT
+  GoSaveTool #{GoSaveTool::VERSION}: subtitle and text tools
+
+  Subtitles:
+    gosavetool convert <file> --to srt|vtt   Write name.srt or name.vtt next to the file
+    gosavetool shift <file> <seconds>        Move every cue (1.5 = later, -2 = earlier), in place
+    gosavetool repair <file>                 Sort, fix overlaps and bad times, renumber, in place
+    gosavetool info <file>                   Format, number of cues and the end time
+
+  Text (reads the file, or standard input without one):
+    gosavetool count [file]                  Words, characters, sentences, lines, reading time
+    gosavetool limits [file]                 Social media and SEO character limits
+    gosavetool case <title|sentence|upper|lower|slug|camel|snake|kebab|clean> [file]
+
+  Options:
+    -o, --out <file>   Write to this file instead
+    --stdout           Print the result instead of writing a file
+
+  Online tools: https://www.gosavetool.com/
+TEXT
+
+CASES = %w[title sentence upper lower slug camel snake kebab clean].freeze
+
+def fail_with(msg)
+  warn "gosavetool: #{msg}\n\nRun gosavetool --help for usage."
+  exit 1
+end
+
+args = ARGV.dup
+take = lambda do |*names|
+  i = args.index { |a| names.include?(a) }
+  next nil unless i
+
+  args.delete_at(i)
+  args.delete_at(i)
+end
+to = take.call("--to")
+out = take.call("-o", "--out")
+stdout = !args.delete("--stdout").nil?
+
+if args.empty? || args.include?("-h") || args.include?("--help")
+  puts HELP
+  exit 0
+end
+if args.include?("-v") || args.include?("--version")
+  puts GoSaveTool::VERSION
+  exit 0
+end
+
+save = lambda do |content, target|
+  if stdout
+    print content
+  else
+    File.write(out || target, content)
+    puts "Wrote #{out || target}"
+  end
+end
+
+cmd = args.shift
+T = GoSaveTool::Text
+S = GoSaveTool::Subtitles
+
+case cmd
+when "count", "limits", "case"
+  op = cmd == "case" ? args.shift : nil
+  fail_with("case needs one of: #{CASES.join(', ')}") if cmd == "case" && !CASES.include?(op)
+  file = args.first
+  fail_with("file not found: #{file}") if file && file != "-" && !File.exist?(file)
+  s = file && file != "-" ? File.read(file, encoding: "UTF-8") : $stdin.read.force_encoding("UTF-8")
+  # A file or a pipe ends with a newline that is not part of the text being counted
+  counted = s.sub(/\r?\n\z/, "")
+  if cmd == "count"
+    st = T.stats(counted)
+    puts "Words: #{st[:words]}", "Characters: #{st[:chars]}", "Without spaces: #{st[:chars_no_spaces]}",
+         "Sentences: #{st[:sentences]}", "Lines: #{st[:lines]}", "Reading time: #{st[:read_seconds]} s"
+  elsif cmd == "limits"
+    T.limits(counted).each do |field, l|
+      puts format("%-22s%5d  %s", field, l[:limit], l[:fits] ? "#{l[:left]} left" : "#{-l[:left]} over")
+    end
+  elsif out
+    save.call(T.public_send(op, s), out)
+  else
+    print T.public_send(op, s)
+  end
+when "convert", "shift", "repair", "info"
+  file = args.first
+  fail_with("missing file") unless file
+  fail_with("file not found: #{file}") unless File.exist?(file)
+  src = File.read(file, encoding: "UTF-8")
+  cues = S.parse(src)
+  fail_with("no subtitle cues found in #{file}") if cues.empty?
+  vtt = S.vtt?(src)
+  write = ->(c) { vtt ? S.to_vtt(c) : S.to_srt(c) }
+  case cmd
+  when "convert"
+    fail_with("convert needs --to srt or --to vtt") unless %w[srt vtt].include?(to)
+    save.call(S.convert(src, to), file.sub(/\.[^.\/\\]*\z/, "") + ".#{to}")
+  when "shift"
+    seconds = Float(args[1].to_s.tr(",", "."), exception: false)
+    fail_with("shift needs seconds, like 1.5 or -2") unless seconds
+    save.call(write.call(S.shift(cues, (seconds * 1000).round)), file)
+  when "repair"
+    fixed, n = S.repair(cues)
+    save.call(write.call(fixed), file)
+    puts(n.positive? ? "#{n} problems fixed" : "No problems found") unless stdout
+  else
+    puts "#{vtt ? 'WebVTT' : 'SRT'}, #{cues.length} cues, ends at #{S.from_ms(cues.map(&:end).max, vtt ? '.' : ',')}"
+  end
+else
+  fail_with("unknown command #{cmd}")
+end
