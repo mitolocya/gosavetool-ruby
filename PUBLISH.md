@@ -40,3 +40,12 @@ Sayfa gemspec ve README'den oluşur:
 ## Sonraki sürümler
 
 `lib/gosavetool/version.rb` içinde `VERSION` değerini artır, `CHANGELOG.md`'ye not ekle, `gem build` ve `gem push`. Yüklenen bir sürüm `gem yank` ile geri çekilebilir ama aynı numara tekrar kullanılamaz.
+
+## Yayın kaydı
+
+- **Tarih:** 2 Kasım 2026
+- **Sürüm:** 1.0.0
+- **Sayfa:** https://rubygems.org/gems/gosavetool
+- **Doğrulama:** temiz `GEM_HOME` içinde `gem install gosavetool` kuruldu, `gosavetool --version` çıktısı `1.0.0`
+- **Kimlik doğrulama:** `Push rubygem` + `All gems` yetkili API anahtarı ve Google Authenticator MFA kodu kullanıldı
+- **Sonraki sürümler:** `v*` etiketi push edildiğinde `.github/workflows/release.yml` trusted publishing (OIDC) ile yayınlar; anahtar gerekmez
