@@ -1,14 +1,15 @@
 # RubyGems.org'da yayınlama
 
-Durum: kaynak hazır (kütüphane, `gosavetool` komut satırı aracı ve Minitest testleri), ancak bu bilgisayarda Ruby kurulu değil ve dış araç indirmek kapalıydı; bu yüzden **testler çalıştırılmadı**. Mantık, test edilmiş Python/Java/Perl sürümleriyle aynı adımları izliyor. Yayından önce:
+Durum (2 Kasım 2026): Ruby 4.0.9 (RubyInstaller, kullanıcı düzeyi kurulum, admin gerekmedi) ile derlendi.
 
 ```
-winget install RubyInstallerTeam.Ruby.3.3
-ruby -Ilib test/test_gosavetool.rb
-gem build gosavetool.gemspec
+ruby -Ilib test/test_gosavetool.rb  -> 5 runs, 32 assertions, 0 failures
+gem build gosavetool.gemspec        -> gosavetool-1.0.0.gem (11.264 bayt, 8 dosya + exe/gosavetool)
+gem install --local                 -> Successfully installed gosavetool-1.0.0
 ```
 
-Testler 5 test olarak geçmeli; `gem build` `gosavetool-1.0.0.gem` dosyasını üretir.
+GitHub deposu açıldı: https://github.com/mitolocya/gosavetool-ruby (gemspec'teki source_code_uri artık geçerli).
+Kalan tek adım: rubygems.org API anahtarı + MFA kodu ile `gem push`.
 
 ## 1. Hesap
 
